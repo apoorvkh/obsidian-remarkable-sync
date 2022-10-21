@@ -2,7 +2,9 @@
 
 ---
 
-**Update (apoorvkh, 10/21/22):** This is an opinionated fork of [remarks ~v0.1.1](https://github.com/lucasrla/remarks). This only supports exporting to PDF files and also supports Quick Notes and Notebooks (in addition to annotated PDFs, which can now handle page insertions). Calling `python -m remarks [input_dir] [output_dir]` will output PDF files in a hierarchical structure (as opposed to the flat file structure).
+**Update (apoorvkh, 10/21/22):** This is an opinionated fork of [remarks ~v0.1.1](https://github.com/lucasrla/remarks). This only supports exporting to PDF files and also supports Quick Notes and Notebooks (in addition to annotated PDFs, which can now handle page insertions). Invoking the module will also produce PDF files in a hierarchical structure (like seen on the reMarkable device, as opposed to the flat file structure).
+
+Usage: As easy as `pip install 'remarks @ git+https://github.com/apoorvkh/remarks'` and `python -m remarks [input_dir] [output_dir]`.
 
 ---
 
