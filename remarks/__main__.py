@@ -4,8 +4,7 @@ import argparse
 from glob import glob
 import json
 
-from remarks import run_remarks
-from utils import get_relative_path
+from remarks import run_remarks, get_relative_path
 
 __prog_name__ = "remarks"
 __version__ = "0.1.1"
@@ -56,12 +55,12 @@ def main():
     # Make directories
     for uuid in metadata.keys():
         if metadata[uuid]['type'] == 'CollectionType':
-            os.makedirs(os.path.join(output_dir, get_relative_path(uuid)), exist_ok=True)
+            os.makedirs(os.path.join(output_dir, get_relative_path(metadata, uuid)), exist_ok=True)
 
     # Produce annotated PDFs
     for uuid in metadata.keys():
         if metadata[uuid]['type'] == 'DocumentType':
-            run_remarks(input_dir, uuid, os.path.join(output_dir, get_relative_path(uuid) + '.pdf'))
+            run_remarks(input_dir, uuid, os.path.join(output_dir, get_relative_path(metadata, uuid) + '.pdf'))
 
 
 if __name__ == "__main__":

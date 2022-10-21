@@ -8,10 +8,10 @@ from .conversion.parsing import (
 )
 
 
-def get_relative_path(uuid):
+def get_relative_path(metadata, uuid):
     if metadata[uuid]['parent'] == '':
         return metadata[uuid]['visibleName']
-    return os.path.join(get_relative_path(metadata[uuid]['parent']), metadata[uuid]['visibleName'])
+    return os.path.join(get_relative_path(metadata, metadata[uuid]['parent']), metadata[uuid]['visibleName'])
 
 def stem(x):
    return os.path.splitext(os.path.basename(x))[0]
