@@ -24,6 +24,12 @@ def main():
         metavar="OUTPUT_DIRECTORY",
     )
     parser.add_argument(
+        "--uuid",
+        type=str,
+        default=None,
+        help="UUID of specific file to update",
+    )
+    parser.add_argument(
         "-v",
         "--version",
         action="version",
@@ -52,15 +58,20 @@ def main():
         if meta['parent'] == 'trash': continue
         metadata[uuid] = meta
 
-    # Make directories
-    for uuid in metadata.keys():
-        if metadata[uuid]['type'] == 'CollectionType':
-            os.makedirs(os.path.join(output_dir, get_relative_path(metadata, uuid)), exist_ok=True)
-
-    # Produce annotated PDFs
-    for uuid in metadata.keys():
-        if metadata[uuid]['type'] == 'DocumentType':
-            run_remarks(input_dir, uuid, os.path.join(output_dir, get_relative_path(metadata, uuid) + '.pdf'))
+    if args.uuid is None:
+        # Make directories
+        for uuid in metadata.keys():
+            if metadata[uuid]['type'] == 'CollectionType':
+                os.makedirs(os.path.join(output_dir, get_relative_path(metadata, uuid)), exist_ok=True)
+        # Produce annotated PDFs
+        for uuid in metadata.keys():
+            if metadata[uuid]['type'] == 'DocumentType':
+                run_remarks(input_dir, uuid, os.path.join(output_dir, get_relative_path(metadata, uuid) + '.pdf'))
+    else:
+        uuid = args.uuid
+        rel_path = get_relative_path(metadata, uuid)
+        os.makedirs(os.path.join(output_dir, rel_path), exist_ok=True)
+        run_remarks(input_dir, uuid, os.path.join(output_dir, rel_path + '.pdf'))
 
 
 if __name__ == "__main__":
