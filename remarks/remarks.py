@@ -21,7 +21,7 @@ def run_remarks(input_path, uuid, output_path):
         pages, redirection_page_map = get_pages(input_path, uuid)
     else:
         pdf_src = fitz.open()
-        pdf_src.new_page()
+        pdf_src.newPage()
         pages = get_pages(input_path, uuid)
         redirection_page_map = [0] + [-1 for _ in range(len(pages) - 1)]
 
