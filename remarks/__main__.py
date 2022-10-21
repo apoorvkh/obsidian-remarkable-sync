@@ -1,7 +1,11 @@
+import os
 import pathlib
 import argparse
+from glob import glob
+import json
 
 from remarks import run_remarks
+from utils import get_relative_path
 
 __prog_name__ = "remarks"
 __version__ = "0.1.1"
@@ -21,48 +25,6 @@ def main():
         metavar="OUTPUT_DIRECTORY",
     )
     parser.add_argument(
-        "--pdf_name",
-        help="Work only on PDF files whose original names (visibleName) contain this string",
-        metavar="FILENAME_STRING",
-    )
-    parser.add_argument(
-        "--ann_type",
-        help="Parse only a specific type of annotation: highlights or scribbles (i.e. everything not highlighted)",
-        metavar="ANNOTATION_TYPE",
-    )
-    parser.add_argument(
-        "--targets",
-        nargs="+",
-        help="Target file formats. Choose at least one of the following extensions: pdf png md svg. Defaults to: png md",
-        default=["md", "png"],
-        metavar="FILE_EXTENSION",
-    )
-    parser.add_argument(
-        "--combined_pdf",
-        dest="combined_pdf",
-        action="store_true",
-        help="Create a '*_remarks.pdf' file with all annotated pages merged into the original (unannotated) PDF",
-    )
-    parser.add_argument(
-        "--modified_pdf",
-        dest="modified_pdf",
-        action="store_true",
-        help="Create a '*_remarks-only.pdf' file with all annotated pages",
-    )
-    parser.add_argument(
-        "-f",
-        "--assume_wellformed",
-        dest="assume_wellformed",
-        action="store_true",
-        help="Assumes a well-formed PDF, where words are in order and fonts are not obfuscated."
-    )
-    parser.add_argument(
-        "--combined_md",
-        dest="combined_md",
-        action="store_true",
-        help="Create a single '*.md' file containing all highlighted text",
-    )
-    parser.add_argument(
         "-v",
         "--version",
         action="version",
@@ -73,13 +35,9 @@ def main():
         "-h", "--help", action="help", help="Show this help message",
     )
 
-    parser.set_defaults(combined_pdf=False, modified_pdf=False, assume_wellformed=False, combined_md=False)
-
     args = parser.parse_args()
-    args_dict = vars(args)
-
-    input_dir = args_dict.pop("input_dir")
-    output_dir = args_dict.pop("output_dir")
+    input_dir = args.input_dir
+    output_dir = args.output_dir
 
     if not pathlib.Path(input_dir).exists():
         parser.error(f'Directory "{input_dir}" does not exist.')
@@ -87,9 +45,24 @@ def main():
     if not pathlib.Path(output_dir).is_dir():
         pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-    run_remarks(input_dir, output_dir, **args_dict)
+    metadata = {}
+
+    for fpath in glob(os.path.join(input_dir, '*.metadata')):
+        uuid = os.path.splitext(os.path.basename(fpath))[0]
+        meta = json.load(open(fpath, 'r'))
+        if meta['parent'] == 'trash': continue
+        metadata[uuid] = meta
+
+    # Make directories
+    for uuid in metadata.keys():
+        if metadata[uuid]['type'] == 'CollectionType':
+            os.makedirs(os.path.join(output_dir, get_relative_path(uuid)), exist_ok=True)
+
+    # Produce annotated PDFs
+    for uuid in metadata.keys():
+        if metadata[uuid]['type'] == 'DocumentType':
+            run_remarks(input_dir, uuid, os.path.join(output_dir, get_relative_path(uuid) + '.pdf'))
 
 
 if __name__ == "__main__":
     main()
-

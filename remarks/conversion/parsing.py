@@ -167,7 +167,6 @@ def parse_rm_file(file_path, highlight_file_path, dims={"x": RM_WIDTH, "y": RM_H
             high_data = json.load(high_f)
     except:
         high_data = {}
-        print("No Highlights File!! Probably only annotations")
 
     expected_header_v3 = b"reMarkable .lines file, version=3          "
     expected_header_v5 = b"reMarkable .lines file, version=5          "

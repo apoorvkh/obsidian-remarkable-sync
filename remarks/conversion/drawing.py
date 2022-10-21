@@ -126,6 +126,9 @@ def draw_pdf(data, page, color=True, inplace=False):
         # Scribbles
         else:
             for seg_points in seg_data["points"]:
+                ## TODO: where are these white strokes coming from?
+                if c[seg_data["color-code"]] == 'white':
+                    continue
                 color_array = fitz.utils.getColor(c[seg_data["color-code"]])
 
                 # Inspired by https://github.com/pymupdf/PyMuPDF/blob/master/docs/faq.rst#how-to-use-ink-annotations

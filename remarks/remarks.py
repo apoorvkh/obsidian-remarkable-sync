@@ -1,245 +1,65 @@
-import math
-import pathlib
+import os
 
 import fitz  # PyMuPDF
 
 from .conversion.parsing import (
     parse_rm_file,
     get_pdf_to_device_ratio,
-    get_adjusted_pdf_dims,
-    get_rescaled_device_dims,
     rescale_parsed_data,
-    get_ann_max_bound,
 )
-from .conversion.drawing import draw_svg, draw_pdf
-from .conversion.text import md_from_blocks, is_text_extractable
-from .conversion.text import extract_highlighted_words_nosort
-from .conversion.ocrmypdf import is_tool, run_ocr
-
-from .utils import (
-    is_document,
-    get_document_filetype,
-    get_visible_name,
-    get_ui_path,
-    get_pdf_page_dims,
-    list_pages_uuids,
-    list_ann_rm_files,
-    list_highlight_rm_files,
-)
+from .conversion.drawing import draw_pdf
+from .utils import *
 
 
-def prepare_subdir(base_dir, fmt):
-    fmt_dir = pathlib.Path(f"{base_dir}/{fmt}/")
-    fmt_dir.mkdir(parents=True, exist_ok=True)
-    return fmt_dir
+def run_remarks(input_path, uuid, output_path):
 
+    # Open PDF if exists, else blank single-page A4 pdf
 
-def run_remarks(
-    input_dir,
-    output_dir,
-    targets=None,
-    pdf_name=None,
-    ann_type=None,
-    combined_pdf=False,
-    modified_pdf=False,
-    assume_wellformed=False,
-    combined_md=False
-):
-    for path in pathlib.Path(f"{input_dir}/").glob("*.metadata"):
-        if not is_document(path):
-            continue
+    pdf_path = get_pdf(input_path, uuid)
+    if os.path.exists(pdf_path):
+        pdf_src = fitz.open(pdf_path)
+        pages, redirection_page_map = get_pages(input_path, uuid)
+    else:
+        pdf_src = fitz.open()
+        pdf_src.new_page()
+        pages = get_pages(input_path, uuid)
+        redirection_page_map = [0] + [-1 for _ in range(len(pages) - 1)]
 
-        filetype = get_document_filetype(path)
-        if filetype == 'pdf':
-            pages = list_pages_uuids(path)
-            name = get_visible_name(path)
-            rm_files = list_ann_rm_files(path)
-            rm_highlight_files = list_highlight_rm_files(path)
+    # Insert blank pages (w/ dimension of page 0) where needed
 
-            if pdf_name and (pdf_name not in name):
-                continue
+    blank_doc = fitz.open()
+    rm_w_rescaled, rm_h_rescaled = get_rescaled_page_dims(pdf_src, page_idx=0)
+    blank_doc.newPage(width=rm_w_rescaled, height=rm_h_rescaled)
 
-            if not pages or not name or not rm_files or not len(rm_files):
-                continue
+    for i, page_idx in enumerate(redirection_page_map):
+        if page_idx == -1:
+            pdf_src.insertPDF(blank_doc, start_at=i)
 
-            page_magnitude = math.floor(math.log10(len(pages))) + 1
-            in_device_path = get_ui_path(path)
+    blank_doc.close()
 
-            out_path = pathlib.Path(f"{output_dir}/{in_device_path}/{name}/")
-            out_path.mkdir(parents=True, exist_ok=True)
+    # Draw lines on PDF
 
-            pdf_src = fitz.open(path.with_name(f"{path.stem}.pdf"))
+    rm_files = get_rm_files(input_path, uuid)
+    highlights_files = get_highlights_files(input_path, uuid, rm_files)
 
-            if combined_md:
-                combined_md_strs = []
+    for rm_file, highlights_file in zip(rm_files, highlights_files):
+        rm_uuid = stem(rm_file)
+        if rm_uuid not in pages: continue
+        page_idx = pages.index(rm_uuid)
 
-            if modified_pdf:
-                mod_pdf = fitz.open()
-                pages_order = []
+        pdf_w, pdf_h = get_pdf_page_dims(pdf_src, page_idx=page_idx)
+        scale = get_pdf_to_device_ratio(pdf_w, pdf_h)
 
-            print(f"Working on PDF file: {path.stem}")
-            print(f'PDF visibleName: "{name}"')
-            print(f"PDF in-device directory: {in_device_path}")
+        highlights, scribbles = parse_rm_file(rm_file, highlights_file)
 
-            for rm_file in rm_files:
-                try:
-                    page_idx = pages.index(f"{rm_file.stem}")
-                except:
-                    page_idx = int(f"{rm_file.stem}")
+        parsed_data = rescale_parsed_data(
+            {"layers": highlights["layers"] + scribbles["layers"]},
+            scale
+        )
 
-                pdf_w, pdf_h = get_pdf_page_dims(path, page_idx=page_idx)
-                scale = get_pdf_to_device_ratio(pdf_w, pdf_h)
+        draw_pdf(parsed_data, pdf_src[page_idx], inplace=True)
 
-                # It seems to me, that if there is a "highlights" page, then
-                # there is also an annotated page in rm_files. I am going to
-                # assume this
-                # However, it is possible that a page has annotations but does
-                # not have a highlight. So if this file does not exist, need
-                # test for it in parse_rm_file and skip this page if no highlights
-                # Get the highlight file for this rm_file. 
-                rm_highlight_file = pathlib.Path(f"{input_dir}/{path.stem}.highlights/{rm_file.stem}.json")
+    # Save PDF
 
-                highlights, scribbles = parse_rm_file(rm_file,rm_highlight_file)
-
-                if ann_type == "highlights":
-                    parsed_data = highlights
-                elif ann_type == "scribbles":
-                    parsed_data = scribbles
-                else:  # merge both annotation types
-                    parsed_data = {"layers": highlights["layers"] + scribbles["layers"]}
-
-                if not parsed_data.get("layers"):
-                    continue
-
-                parsed_data = rescale_parsed_data(parsed_data, scale)
-
-                if "svg" in targets:
-                    svg_str = draw_svg(parsed_data)
-
-                    subdir = prepare_subdir(out_path, "svg")
-                    with open(f"{subdir}/{page_idx:0{page_magnitude}}.svg", "w") as f:
-                        f.write(svg_str)
-
-                ann_doc = fitz.open()
-
-                rm_w_rescaled, rm_h_scaled = get_rescaled_device_dims(scale)
-                ann_page = ann_doc.newPage(width=rm_w_rescaled, height=rm_h_scaled)
-
-                pdf_w_adj, pdf_h_adj = get_adjusted_pdf_dims(pdf_w, pdf_h, scale)
-                pdf_rect = fitz.Rect(0, 0, pdf_w_adj, pdf_h_adj)
-
-                ann_page.showPDFpage(pdf_rect, pdf_src, pno=page_idx)
-
-                should_extract_text = (ann_type != "scribbles") and (len(highlights["layers"]) > 0)
-
-                extractable = is_text_extractable(pdf_src[page_idx], assume_wellformed=assume_wellformed)
-
-                ocred = False
-
-                if should_extract_text and not extractable and is_tool("ocrmypdf"):
-                    print(
-                        f"- Couldn't extract text from page #{page_idx}. Will OCR it. Hold on\n"
-                    )
-
-                    tmp_file = "_tmp.pdf"
-                    ann_doc.save(tmp_file)
-                    ann_doc.close()
-
-                    # Note: as of July 2020, ocrmypdf does not recognize handwriting
-                    tmp_file = run_ocr(tmp_file)
-
-                    ann_doc = fitz.open(tmp_file)
-                    pathlib.Path(tmp_file).unlink()
-
-                    ann_page = ann_doc[0]
-                    ocred = True
-
-                ann_page = draw_pdf(parsed_data, ann_page)
-
-                if "pdf" in targets:
-                    subdir = prepare_subdir(out_path, "pdf")
-                    ann_doc.save(f"{subdir}/{page_idx:0{page_magnitude}}.pdf")
-
-                if "png" in targets:
-                    # (2, 2) is a short-hand for 2x zoom on x and y
-                    # ref: https://pymupdf.readthedocs.io/en/latest/page.html#Page.getPixmap
-                    pixmap = ann_page.getPixmap(matrix=fitz.Matrix(2, 2))
-
-                    subdir = prepare_subdir(out_path, "png")
-                    pixmap.writePNG(f"{subdir}/{page_idx:0{page_magnitude}}.png")
-
-                if should_extract_text and ("md" in targets or combined_md):
-                    if extractable or ocred:
-                        if assume_wellformed:
-                            md_str = extract_highlighted_words_nosort(ann_page)
-                        else:
-                            md_str = md_from_blocks(ann_page)
-
-                        # TODO: add proper table extraction?
-                        # https://pymupdf.readthedocs.io/en/latest/faq.html#how-to-extract-tables-from-documents
-
-                        # TODO: maybe also add highlighted image (pixmap) extraction?
-
-                        if combined_md:
-                            combined_md_strs += [(page_idx, md_str + '\n')]
-
-                        if "md" in targets:
-                            subdir = prepare_subdir(out_path, "md")
-                            with open(f"{subdir}/{page_idx:0{page_magnitude}}.md", "w") as f:
-                                f.write(md_str)
-                    
-                    else:
-                        print(
-                            f"- Found highlighted text but couldn't extract markdown from highlights on page #{page_idx}"
-                        )                        
-
-                # TODO: add a proper verbose mode (which is off by default)
-                elif not len(highlights["layers"]) > 0:
-                    print(f"- Couldn't find any highlighted text on page #{page_idx}")
-
-                elif len(highlights["layers"]) > 0 and ann_type == "scribbles":
-                    print(
-                        "- Found some highlighted text but `--ann_type` flag was set to `scribbles` only"
-                    )
-
-                if modified_pdf:
-                    mod_pdf.insertPDF(ann_doc, start_at=-1)
-                    pages_order.append(page_idx)
-
-                if combined_pdf:
-                    x_max, y_max = get_ann_max_bound(parsed_data)
-                    ann_outside = (x_max > pdf_w_adj) or (y_max > pdf_h_adj)
-
-                    # If there are annotations outside the original PDF page limits,
-                    # insert the ann_page that we have created from scratch
-                    if ann_outside:
-                        pdf_src.insertPDF(ann_doc, start_at=page_idx)
-                        pdf_src.deletePage(page_idx + 1)
-
-                    # Else, draw annotations in the original PDF page (in-place)
-                    # to preserve links (and also the original page size)
-                    else:
-                        draw_pdf(parsed_data, pdf_src[page_idx], inplace=True)
-
-                ann_doc.close()
-
-            if combined_pdf:
-                pdf_src.save(f"{output_dir}/{name} _remarks.pdf")
-
-            if modified_pdf:
-                pages_order = sorted(range(len(pages_order)), key=pages_order.__getitem__)
-                mod_pdf.select(pages_order)
-                mod_pdf.save(f"{output_dir}/{name} _remarks-only.pdf")
-                mod_pdf.close()
-
-            if combined_md:
-                combined_md_strs = sorted(combined_md_strs, key=lambda t:t[0])
-                combined_md_str = ''.join([f"\nPage {s[0]}\n--------\n" + s[1]
-                                            for s in combined_md_strs])
-                combined_md_str = f"{name}\n========\n" + combined_md_str
-                with open(f"{output_dir}/{name}.md", "w") as f:
-                    f.write(combined_md_str)
-
-            pdf_src.close()
-        else:
-            print(f"Skipped {filetype} file {path.stem}. Currently, remarks supports only PDF")
+    pdf_src.save(output_path)
+    pdf_src.close()

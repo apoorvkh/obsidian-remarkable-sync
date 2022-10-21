@@ -1,5 +1,11 @@
 # remarks
 
+---
+
+**Update (apoorvkh, 10/21/22):** This is an opinionated fork of [remarks ~v0.1.1](https://github.com/lucasrla/remarks). This only supports exporting to PDF files and also supports Quick Notes and Notebooks (in addition to annotated PDFs, which can now handle page insertions). Calling `python -m remarks [input_dir] [output_dir]` will output PDF files in a hierarchical structure (as opposed to the flat file structure).
+
+---
+
 Extract your marks (highlights, scribbles, annotations) and convert them to `Markdown`, `PDF`, `PNG`, and `SVG`. 
 
 `remarks` works with PDFs annotated on [reMarkable™ paper tablets](https://remarkable.com), both 1st and 2nd generation.

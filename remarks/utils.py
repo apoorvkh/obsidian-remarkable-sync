@@ -1,78 +1,46 @@
+import os
+from glob import glob
 import json
-import pathlib
 
-import fitz  # PyMuPDF
-
-
-def read_meta_file(path, suffix=".metadata"):
-    file = path.with_name(f"{path.stem}{suffix}")
-    if not file.exists():
-        return None
-    data = json.loads(open(file).read())
-    return data
+from .conversion.parsing import (
+    get_pdf_to_device_ratio,
+    get_rescaled_device_dims,
+)
 
 
-def is_document(path):
-    metadata = read_meta_file(path)
-    return metadata["type"] == 'DocumentType'
+def get_relative_path(uuid):
+    if metadata[uuid]['parent'] == '':
+        return metadata[uuid]['visibleName']
+    return os.path.join(get_relative_path(metadata[uuid]['parent']), metadata[uuid]['visibleName'])
 
+def stem(x):
+   return os.path.splitext(os.path.basename(x))[0]
 
-def get_document_filetype(path):
-    content = read_meta_file(path, suffix=".content")
-    return content["fileType"]
+def get_pdf(input_path, uuid):
+    return os.path.join(input_path, uuid + '.pdf')
 
+def get_pdf_page_dims(doc, page_idx=0):
+    page = doc.loadPage(page_idx)
+    return page.rect.width, page.rect.height
 
-def get_visible_name(path):
-    metadata = read_meta_file(path)
-    return metadata["visibleName"]
+def get_rescaled_page_dims(pdf_src, page_idx=0):
+    pdf_w, pdf_h = get_pdf_page_dims(pdf_src, page_idx)
+    scale = get_pdf_to_device_ratio(pdf_w, pdf_h)
+    rm_w_rescaled, rm_h_rescaled = get_rescaled_device_dims(scale)
+    return rm_w_rescaled, rm_h_rescaled
 
-
-def get_ui_path(path):
-    metadata = read_meta_file(path)
-    parent_filename = metadata["parent"]
-
-    # Check the parent
-    ui_path = pathlib.Path("")
-
-    while parent_filename != "":
-        # First get the total path of the parent
-        parent_path = pathlib.Path(path.parent, metadata["parent"])
-
-        # Get the meta data of this parent
-        metadata = read_meta_file(parent_path)
-        if not metadata:
-            return pathlib.Path(".")
-
-        parent_title = metadata["visibleName"]
-
-        # These go in reverse order up to the top level
-        ui_path = pathlib.Path(parent_title).joinpath(ui_path)
-
-        # Get the parent of this one
-        parent_filename = metadata["parent"]
-
-    return ui_path
-
-
-def get_pdf_page_dims(path, page_idx=0):
-    with fitz.open(path.with_name(f"{path.stem}.pdf")) as doc:
-        first_page = doc.loadPage(page_idx)
-        return first_page.rect.width, first_page.rect.height
-
-
-def list_pages_uuids(path):
-    content = read_meta_file(path, suffix=".content")
+def get_pages(input_path, uuid):
+    content = json.load(open(
+        os.path.join(input_path, uuid + '.content'), 'r'))
+    if "redirectionPageMap" in content:
+        return content["pages"], content["redirectionPageMap"]
     return content["pages"]
 
+def get_rm_files(input_path, uuid):
+    return list(glob(os.path.join(input_path, uuid, '*.rm')))
 
-def list_ann_rm_files(path):
-    content_dir = pathlib.Path(f"{path.parents[0]}/{path.stem}/")
-    if not content_dir.is_dir():
-        return None
-    return list(content_dir.glob("*.rm"))
-
-def list_highlight_rm_files(path):
-    content_dir = pathlib.Path(f"{path.parents[0]}/{path.stem}.highlights/")
-    if not content_dir.is_dir():
-        return None
-    return list(content_dir.glob("*.json"))
+def get_highlights_files(input_path, uuid, rm_files):
+    return [
+        os.path.join(input_path, uuid + '.highlights', stem(rmf) + '.json')
+        for rmf in rm_files
+    ]
