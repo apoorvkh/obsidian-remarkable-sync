@@ -113,7 +113,10 @@ def draw_pdf(data, page, color=True, inplace=False):
                 # see also: https://pymupdf.readthedocs.io/en/latest/faq.html#how-to-add-and-modify-annotations
 
                 # now supporting colors
-                color_array = fitz.utils.getColor(c[seg_data["color-code"]])
+                if c[seg_data["color-code"]] == 'black':
+                    color_array = fitz.utils.getColor('yellow')
+                else:
+                    color_array = fitz.utils.getColor(c[seg_data["color-code"]])
                 annot.setColors(stroke=color_array)
 
                 annot.setOpacity(seg_data["opacity"])
