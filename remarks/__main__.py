@@ -3,6 +3,7 @@ import pathlib
 import argparse
 from glob import glob
 import json
+import warnings
 
 from remarks import run_remarks, get_relative_path
 
@@ -76,7 +77,7 @@ def main():
             os.makedirs(os.path.dirname(abs_path), exist_ok=True)
             run_remarks(input_dir, uuid, abs_path + '.pdf')
         else:
-            raise Exception(f"UUID ({uuid}) does not correspond with an entry in the metadata")
+            warnings.warn(f"UUID ({uuid}) does not correspond with an entry in the metadata")
 
 
 if __name__ == "__main__":
