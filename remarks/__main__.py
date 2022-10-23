@@ -69,9 +69,14 @@ def main():
                 run_remarks(input_dir, uuid, os.path.join(output_dir, get_relative_path(metadata, uuid) + '.pdf'))
     else:
         uuid = args.uuid
-        rel_path = get_relative_path(metadata, uuid)
-        os.makedirs(os.path.join(output_dir, rel_path), exist_ok=True)
-        run_remarks(input_dir, uuid, os.path.join(output_dir, rel_path + '.pdf'))
+        abs_path = os.path.join(output_dir, get_relative_path(metadata, uuid))
+        if metadata[uuid]['type'] == 'CollectionType':
+            os.makedirs(abs_path, exist_ok=True)
+        elif metadata[uuid]['type'] == 'DocumentType':
+            os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+            run_remarks(input_dir, uuid, abs_path + '.pdf')
+        else:
+            raise Exception(f"UUID ({uuid}) does not correspond with an entry in the metadata")
 
 
 if __name__ == "__main__":
