@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "obs2rem"
+version = "0.1"
+description = ""
+authors = ["apoorvkh <mail@apoorvkh.com>"]
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/apoorvkh/obsidian2remarkable"
+
+# https://python-poetry.org/docs/dependency-specification/
+[tool.poetry.dependencies]
+python = "^3.8"
+Shapely = "1.7.1"
+PyMuPDF = "1.18.4"
+
+[tool.poetry.dev-dependencies]
+black = "^19.10b0"
+pylint = "^2.5.3"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
