@@ -4,7 +4,7 @@
 
 ```bash
 conda install git python=3.8 pandoc tectonic -c conda-forge
-pip install git+https://github.com/apoorvkh/obsidian2remarkable.git
+pip install git+https://github.com/apoorvkh/obsidian-remarkable-sync.git@obs2rem
 ```
 
 ## Running
