@@ -6,5 +6,4 @@ RUN pip install git+https://github.com/apoorvkh/obsidian-remarkable-sync.git@obs
 
 COPY ./crontab.yml /crontab.yml
 
-ENTRYPOINT /bin/bash
-CMD "yacron -c /crontab.yml"
+ENTRYPOINT ["/usr/local/bin/yacron", "-c", "/crontab.yml"]
