@@ -9,7 +9,7 @@ from . import rem_utils
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--obsidian-dir", type=pathlib.Path, required=True, dest='obsidian_dir')
-    parser.add_argument("--obsidian-excludes", type=str, nargs='+', default=['remarkable/**'], dest='obsidian_excludes')
+    parser.add_argument("--obsidian-excludes", type=str, nargs='+', default=['_remarkable/**'], dest='obsidian_excludes')
     parser.add_argument("--remarkable-dir", type=pathlib.Path, required=True, dest='remarkable_dir')
     parser.add_argument("--remarkable-prefix", type=pathlib.Path, default='obsidian', dest='remarkable_prefix')
     args = parser.parse_args()
