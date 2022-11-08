@@ -1,0 +1,5 @@
+jobs:
+  - name: sync
+    command: python -m obs2rem --obsidian-dir /obsidian --remarkable-dir /remarkable && python -m remarks /remarkable /obsidian/_remarkable
+    shell: /bin/bash
+    schedule: "*/5 * * * *"
