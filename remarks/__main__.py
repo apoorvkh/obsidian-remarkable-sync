@@ -51,13 +51,24 @@ def main():
     if not pathlib.Path(output_dir).is_dir():
         pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
 
+    ## Load metadata of existing remarkable files
     metadata = {}
-
     for fpath in glob(os.path.join(input_dir, '*.metadata')):
         uuid = os.path.splitext(os.path.basename(fpath))[0]
-        meta = json.load(open(fpath, 'r'))
-        if meta['parent'] == 'trash': continue
-        metadata[uuid] = meta
+        metadata[uuid] = json.load(open(fpath, 'r'))
+
+    # Ignore all uuids in "trash"
+    prev_metadata_len = None
+    trashed_uuids = ['trash']
+    while prev_metadata_len != len(metadata):
+        prev_metadata_len = len(metadata)
+        for uuid, meta in metadata.items():
+            if meta['parent'] in trashed_uuids:
+                trashed_uuids.append(uuid)
+        for uuid in trashed_uuids:
+            if uuid in metadata.keys():
+                del metadata[uuid]
+    ##
 
     if args.uuid is None:
         # Make directories
