@@ -22,9 +22,19 @@ def filetree(remarkable_dir):
     metadata = {}
     for fpath in glob(os.path.join(remarkable_dir, '*.metadata')):
         uuid = os.path.splitext(os.path.basename(fpath))[0]
-        meta = json.load(open(fpath, 'r'))
-        if meta['parent'] == 'trash': continue
-        metadata[uuid] = meta
+        metadata[uuid] = json.load(open(fpath, 'r'))
+
+    # Ignore all uuids in "trash"
+    prev_metadata_len = None
+    trashed_uuids = ['trash']
+    while prev_metadata_len != len(metadata):
+        prev_metadata_len = len(metadata)
+        for uuid, meta in metadata.items():
+            if meta['parent'] in trashed_uuids:
+                trashed_uuids.append(uuid)
+        for uuid in trashed_uuids:
+            if uuid in metadata.keys():
+                del metadata[uuid]
 
     ## Load paths of existing remarkable directories and files
 
